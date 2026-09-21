@@ -1,0 +1,55 @@
+# 합성 데이터용 설정 — scripts/make_synthetic.py 로 만든 파일을 돌릴 때.
+# 실데이터와 달리 스케일을 전부 명시해서 자동판정에 기대지 않는다.
+
+run:
+  out_dir: outputs
+  label: "합성 데이터 스모크 테스트"
+
+data:
+  root: data/synthetic
+  glob: "Twall-*.hdf5"
+  skip_initial_fraction: 0.0     # 합성 데이터는 과도 구간이 없다
+  time_stride: 1
+
+geometry:
+  wall: bottom
+  heater_x_range_m: null
+
+nondim:
+  temperature_mode: nondimensional
+  temperature_convention: theta_bulk_wall
+  length_mode: meters            # 합성기는 좌표를 미터로 쓴다
+  case_table:
+    Twall-78:  {T_wall_C: 78.0,  T_sat_C: 56.6, T_bulk_C: 56.6}
+    Twall-84:  {T_wall_C: 84.0,  T_sat_C: 56.6, T_bulk_C: 56.6}
+    Twall-90:  {T_wall_C: 90.0,  T_sat_C: 56.6, T_bulk_C: 56.6}
+    Twall-96:  {T_wall_C: 96.0,  T_sat_C: 56.6, T_bulk_C: 56.6}
+    Twall-102: {T_wall_C: 102.0, T_sat_C: 56.6, T_bulk_C: 56.6}
+    Twall-108: {T_wall_C: 108.0, T_sat_C: 56.6, T_bulk_C: 56.6}
+
+phase:
+  phi_positive_in: liquid
+  eps_cells: 1.5
+  mixing_rule: arithmetic
+
+wall_flux:
+  order: 2
+  audit_orders: [1, 2, 3]
+  include_mixed_cells: true
+
+coarsen:
+  dx_m: 5.0e-5                   # 합성 도메인이 작아서 거친 셀도 작게 잡는다
+
+cooper:
+  fluid: FC-72
+  roughness_um: 1.0
+  fluid_overrides: configs/fluids.yaml
+
+gate:
+  mape_max: 0.30
+  slope_target: 0.33
+  slope_tol: 0.05
+  min_cases: 5
+
+report:
+  make_plots: true

@@ -1,0 +1,67 @@
+# 거친 입력 검증 게이트 — 실제 BubbleML 데이터용 설정 (초안)
+#
+# 원칙: 추측한 값은 전부 여기 적어 둔다. 코드 안에 숨은 상수를 두지 않는다.
+#       특히 nondim.* 는 q'' 전체의 크기를 좌우하므로 par 파일로 확인할 것.
+
+run:
+  out_dir: outputs
+  label: "9/21 거친 입력 검증 게이트 (초안)"
+
+data:
+  root: data/bubbleml
+  glob: "*.hdf5"
+  # cases: ["Twall-90.hdf5", "Twall-95.hdf5"]   # 특정 케이스만 돌릴 때
+  skip_initial_fraction: 0.3     # 초기 과도 구간은 정상상태가 아니라 버린다
+  time_stride: 1
+
+geometry:
+  wall: bottom
+  dx_m: null                     # null → 좌표 배열에서 추정
+  dy_m: null
+  heater_x_range_m: null         # null → 벽 전체를 히터로 본다 (★ 확인 필요)
+
+nondim:
+  # BubbleML 은 무차원으로 저장돼 있다. 아래 두 항목이 q'' 크기를 통째로 결정한다.
+  temperature_mode: auto             # auto | nondimensional | kelvin | celsius
+  temperature_convention: theta_bulk_wall   # theta = (T-T_bulk)/(T_wall-T_bulk)
+  length_mode: auto                  # auto | nondimensional | meters
+  length_scale_m: null               # null → 유체의 모세관 길이 (★ par 파일로 확인 필요)
+  # 정답 ΔT 의 출처. 여기 적힌 값이 게이트의 '정답'이 되므로 추측하지 말 것.
+  case_table: {}
+  #   Twall-90:
+  #     T_wall_C: 90.0
+  #     T_sat_C: 56.6
+  #     T_bulk_C: 56.6
+
+phase:
+  phi_positive_in: liquid        # dfun 부호 규약 (★ 데이터로 확인 필요)
+  eps_cells: 1.5                 # smoothed Heaviside 폭 = 1.5 * dy
+  mixing_rule: arithmetic        # 노트의 "비율로 섞은 값". harmonic 은 민감도로 함께 기록됨
+
+wall_flux:
+  order: 2                       # 기준 차수 — 못 박는다 (Flash-X 가 공간 2차)
+  audit_orders: [1, 2, 3]        # 수렴 확인용
+  include_mixed_cells: true      # ★ 섞인 셀을 빼지 않는다 (9/20 결론)
+
+coarsen:
+  dx_m: 0.002                    # 거친 격자 2 mm
+  aggregate: heater_mean
+
+cooper:
+  fluid: FC-72
+  roughness_um: 1.0              # 고정. 튜닝 금지 (튜닝하면 '유체별 상수 없음'이 깨짐)
+  allow_tuning: false
+  fluid_overrides: configs/fluids.yaml
+
+gate:
+  mape_max: 0.30                 # Cooper 문헌 산포 ±30~40% 에 맞춘 기준
+  slope_target: 0.33
+  slope_tol: 0.05
+  min_cases: 5                   # 점이 적으면 기울기와 프리팩터가 구분되지 않는다
+
+wall_function:
+  enabled: false                 # 10월 정식 게이트 항목. 9/21 일정에서는 끈다.
+
+report:
+  make_plots: true
+  dpi: 160

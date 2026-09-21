@@ -1,0 +1,9 @@
+# 유체 물성 덮어쓰기.
+# ★ 여기 값은 문헌 대표값이다. Flash-X par 파일 / HDF5 runtime params 로 교차확인하고
+#   다른 값이면 이 파일을 고쳐라. 어떤 값을 썼는지는 run_manifest.json 에 남는다.
+fluids:
+  FC-72:
+    # T_sat 은 1 atm 기준. BubbleML 이 다른 압력이면 p_operating_Pa 와 함께 고쳐야 한다.
+    T_sat_K: 329.75          # 56.6 C
+    p_operating_Pa: 101325.0
+    source: "3M FC-72 자료 + 비등 문헌 대표값 (BubbleML par 파일 미확인)"

@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cooperval"
+version = "0.1.0"
+description = "BubbleML coarse-input gate for the Cooper pool-boiling correlation"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "h5py>=3.8",
+    "pandas>=2.0",
+    "matplotlib>=3.7",
+    "PyYAML>=6.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

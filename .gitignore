@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# 데이터와 산출물은 버전관리하지 않음 (용량)
+data/bubbleml/*.hdf5
+data/bubbleml/*.h5
+outputs/
+!outputs/.gitkeep
