@@ -4,6 +4,9 @@
 사용 예:
     python scripts/run_gate.py --config configs/default.yaml
     python scripts/run_gate.py --config configs/default.yaml --data-root data/synthetic
+    python scripts/run_gate.py --config configs/ground_truth.yaml          # 정답 기포장 표
+    python scripts/run_gate.py --config configs/ground_truth.yaml \
+        --ground-truth path/to/ground_truth_final.csv                      # 원본 인계 표
 """
 
 from __future__ import annotations
@@ -31,6 +34,18 @@ def main() -> int:
         "--exclude-mixed-cells", action="store_true",
         help="섞인 셀을 결측 처리하는 옛 방식 재현 (편향 크기 확인용)",
     )
+    ap.add_argument(
+        "--ground-truth", default=None,
+        help="정답 기포장 인계 표(ground_truth_final.csv). 주면 HDF5 대신 이 표의 q'' 를 쓴다",
+    )
+    ap.add_argument(
+        "--q-definition", default=None, choices=["arith", "harm", "kl", "legacy"],
+        help="판정에 쓸 정답 q'' 정의 (기본 arith). 나머지는 민감도 표에 같이 남는다",
+    )
+    ap.add_argument(
+        "--slope-role", default=None, choices=["auto", "criterion", "reference"],
+        help="기울기 기준의 역할 (기본 auto: 처방 사이트 수가 다르면 참고로 내림)",
+    )
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -52,6 +67,12 @@ def main() -> int:
         overrides.setdefault("report", {})["make_plots"] = False
     if args.exclude_mixed_cells:
         overrides.setdefault("wall_flux", {})["include_mixed_cells"] = False
+    if args.ground_truth:
+        overrides.setdefault("ground_truth", {})["csv"] = args.ground_truth
+    if args.q_definition:
+        overrides.setdefault("ground_truth", {})["q_definition"] = args.q_definition
+    if args.slope_role:
+        overrides.setdefault("gate", {})["slope_role"] = args.slope_role
 
     cfg_path = Path(args.config)
     cfg = load_config(cfg_path if cfg_path.exists() else None, overrides)
@@ -62,9 +83,11 @@ def main() -> int:
     print("=" * 72)
     print(f"  판정   : {gate.verdict}")
     print(f"  경로   : {gate.route}")
-    print(f"  MAPE   : {gate.mape:.1%}  (기준 ≤ {gate.mape_max:.0%})")
-    print(f"  기울기 : {gate.fit.slope:.3f} ± {gate.fit.slope_stderr:.3f}  "
-          f"(목표 {gate.slope_target} ± {gate.slope_tol})")
+    print(f"  MAPE   : {gate.mape:.1%}  (기준 ≤ {gate.mape_max:.0%}; "
+          f"조건별 이내 {gate.n_within}/{len(gate.points)})")
+    role = (f"목표 {gate.slope_target} ± {gate.slope_tol}" if gate.slope_role == "criterion"
+            else "참고만 — 사이트 수 처방 자료라 판정 제외")
+    print(f"  기울기 : {gate.fit.slope:.3f} ± {gate.fit.slope_stderr:.3f}  ({role})")
     print(f"  산출물 : {result['out_dir']}")
     print("=" * 72)
     for reason in gate.reasons:

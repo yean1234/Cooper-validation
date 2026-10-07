@@ -6,6 +6,12 @@
       → [cooper]    ΔT_sup 예측                  (Cooper 역산)
       → [gate]      정답 ΔT_sup 과 비교           (MAPE + log-log 기울기)
       → [report]    CSV / JSON / 그림 / 요약
+
+정답 표 모드 (``ground_truth.csv`` 를 주면):
+    정답 기포장 레포가 확정한 q'' (1차 벽 기울기 × phase-averaged k)
+      → [cooper] ΔT_sup 예측 → [gate] 정답 ΔT_sup 과 비교 → [report]
+    HDF5 를 다시 읽지 않는다. 정답 쪽이 이미 확정한 열유속을 우리가 다른 식으로
+    다시 뽑으면 '정답'이 두 개가 되기 때문이다.
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ from .config import Config
 from .cooper import CooperModel
 from .fluids import get_fluid, load_fluid_library
 from .gate import evaluate_gate, make_point
+from .ground_truth import Q_DEFINITIONS, load_ground_truth
 from .report import write_outputs
 from .wallflux import compute_wall_flux
 
@@ -68,6 +75,9 @@ def run_pipeline(cfg: Config) -> dict:
 
     run_id = cfg.get("run.run_id") or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out_dir = Path(cfg.get("run.out_dir", "outputs")) / run_id
+
+    if cfg.get("ground_truth.csv"):
+        return _run_from_ground_truth(cfg, model, fluid, run_id, out_dir)
 
     paths = discover_cases(cfg)
     log.info("케이스 %d개 발견", len(paths))
@@ -131,6 +141,112 @@ def run_pipeline(cfg: Config) -> dict:
         out_dir=out_dir,
         gate=gate,
         coarse_rows=coarse_rows,
+        manifest=manifest,
+        make_plots=bool(cfg.get("report.make_plots", True)),
+        dpi=int(cfg.get("report.dpi", 160)),
+    )
+    return {"run_id": run_id, "out_dir": str(out_dir), "gate": gate, "files": written,
+            "manifest": manifest}
+
+
+def _ground_truth_points(conditions, key: str, model: CooperModel) -> list:
+    return [
+        make_point(
+            case_id=c.case_id,
+            q_coarse=c.q_W_m2[key],
+            delta_t_truth=c.delta_t_sup_K,
+            model=model,
+            vapor_fraction=float("nan"),        # 인계 표에 벽 증기분율은 없다
+            n_sites_prescribed=c.n_sites_prescribed,
+        )
+        for c in conditions
+    ]
+
+
+def _run_from_ground_truth(cfg: Config, model: CooperModel, fluid, run_id: str, out_dir: Path) -> dict:
+    csv_path = Path(cfg.get("ground_truth.csv"))
+    conditions = load_ground_truth(csv_path)
+    log.info("정답 표에서 조건 %d개를 읽었습니다: %s", len(conditions), csv_path)
+
+    key = str(cfg.get("ground_truth.q_definition", "arith"))
+    if key not in Q_DEFINITIONS:
+        raise ValueError(f"ground_truth.q_definition 은 {sorted(Q_DEFINITIONS)} 중 하나 — 받은 값 {key!r}")
+    if key not in conditions[0].q_W_m2:
+        raise KeyError(f"정답 표에 {Q_DEFINITIONS[key].column!r} 컬럼이 없습니다")
+
+    gate = evaluate_gate(_ground_truth_points(conditions, key, model), cfg)
+
+    # q 정의 민감도: 네 정의를 전부 같은 게이트로 돌려 나란히 남긴다. 판정은 위의 하나로만 한다.
+    sensitivity = []
+    for other in Q_DEFINITIONS:
+        if other not in conditions[0].q_W_m2:
+            continue
+        g = gate if other == key else evaluate_gate(_ground_truth_points(conditions, other, model), cfg)
+        sensitivity.append({
+            "q_definition": other,
+            "column": Q_DEFINITIONS[other].column,
+            "role": Q_DEFINITIONS[other].role,
+            "used_for_verdict": other == key,
+            "mape": g.mape,
+            "n_within_band": g.n_within,
+            "verdict": g.verdict,
+            "delta_t_cooper_K": [p.delta_t_cooper_K for p in g.points],
+        })
+    peers = [r for r in sensitivity
+             if r["role"] in ("기본", "동등 후보") and not r["used_for_verdict"]]
+    split = [r["q_definition"] for r in peers if r["verdict"] != gate.verdict]
+    if split:
+        gate.reasons.append(
+            f"주의: 동등 후보 q 정의({', '.join(split)})로는 판정이 달라집니다 — "
+            "산술/조화 선택이 확정되기 전까지 이 판정은 정의 선택에 기대고 있습니다."
+        )
+    elif peers:
+        gate.reasons.append(
+            f"동등 후보 q 정의({', '.join(r['q_definition'] for r in peers)})로도 판정이 같습니다 "
+            "(산술/조화 선택에 기대지 않는 결론)."
+        )
+
+    manifest = {
+        "run_id": run_id,
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "git_sha": _git_sha(),
+        "label": cfg.get("run.label"),
+        "mode": "ground_truth_table",
+        "config": cfg.to_dict(),
+        "config_source": cfg.source_path,
+        "cooper_model": model.describe(),
+        "fluid": fluid.to_dict(),
+        "ground_truth": {
+            "csv": str(csv_path),
+            "digest": _file_digest(csv_path),
+            "q_definition": key,
+            "q_column": Q_DEFINITIONS[key].column,
+            "conditions": [
+                {
+                    "case_id": c.case_id,
+                    "T_wall_C": c.T_wall_C,
+                    "delta_t_sup_K": c.delta_t_sup_K,
+                    "n_sites_prescribed": c.n_sites_prescribed,
+                    "n_sites_active_2d": c.n_sites_active,
+                    "q_W_m2": c.q_W_m2,
+                }
+                for c in conditions
+            ],
+        },
+        "q_definition_sensitivity": sensitivity,
+        "provenance": {
+            "q_source": "정답 기포장 인계 표 (1차 벽 기울기, phase-averaged k)",
+            "delta_t_source": "인계 표 input_dT_sup_K (시뮬레이션 입력)",
+            "slope_role": gate.slope_role,
+            "roughness_um": cfg.get("cooper.roughness_um"),
+            "roughness_tuned": cfg.get("cooper.allow_tuning"),
+        },
+    }
+
+    written = write_outputs(
+        out_dir=out_dir,
+        gate=gate,
+        coarse_rows=[],
         manifest=manifest,
         make_plots=bool(cfg.get("report.make_plots", True)),
         dpi=int(cfg.get("report.dpi", 160)),

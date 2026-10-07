@@ -69,11 +69,15 @@ def plot_boiling_curve(gate: GateResult, path: Path, dpi: int) -> None:
 
     ax.set_xscale("log")
     ax.set_yscale("log")
-    ax.set_xlabel("Coarse wall heat flux  $q''$  [W/m$^2$]")
+    ax.set_xlabel("Wall heat flux  $q''$  [W/m$^2$]")
     ax.set_ylabel("Wall superheat  $\\Delta T_{sup}$  [K]")
+    role = (
+        f"target {gate.slope_target}±{gate.slope_tol}"
+        if gate.slope_role == "criterion"
+        else "reference only: sites prescribed"
+    )
     ax.set_title(
-        f"Boiling curve — fitted slope {gate.fit.slope:.3f} "
-        f"(target {gate.slope_target}±{gate.slope_tol})",
+        f"Boiling curve — fitted slope {gate.fit.slope:.3f} ({role})",
         color=INK, fontsize=11, loc="left",
     )
     leg = ax.legend(frameon=False, fontsize=9, loc="upper left")
@@ -158,49 +162,112 @@ def plot_order_audit(diagnostics: dict, path: Path, dpi: int) -> None:
     plt.close(fig)
 
 
+def _fmt(value: float, spec: str) -> str:
+    return format(value, spec) if np.isfinite(value) else "—"
+
+
 def _summary_markdown(gate: GateResult, manifest: dict) -> str:
+    slope_note = (
+        f"(목표 {gate.slope_target} ± {gate.slope_tol})"
+        if gate.slope_role == "criterion"
+        else "(**참고만 — 사이트 수가 처방된 자료라 판정에서 제외**)"
+    )
     lines = [
         "# Cooper 게이트 결과 (초안)",
         "",
         f"- 판정: **{gate.verdict}**",
         f"- 다음 경로: {gate.route}",
         f"- 케이스 수: {len(gate.points)} (최소 {gate.min_cases})",
-        f"- MAPE: **{gate.mape:.1%}** (기준 ≤ {gate.mape_max:.0%})",
+        f"- MAPE: **{gate.mape:.1%}** (기준 ≤ {gate.mape_max:.0%}); "
+        f"조건별 ±{gate.mape_max:.0%} 이내 {gate.n_within}/{len(gate.points)}",
         f"- log-log 기울기: **{gate.fit.slope:.3f}** ± {gate.fit.slope_stderr:.3f} "
-        f"(목표 {gate.slope_target} ± {gate.slope_tol}), R² = {gate.fit.r_squared:.3f}",
+        f"{slope_note}, R² = {gate.fit.r_squared:.3f}",
         "",
         "## 판정 근거",
         "",
     ]
     lines += [f"{i}. {r}" for i, r in enumerate(gate.reasons, 1)]
-    lines += [
-        "",
-        "## 케이스별",
-        "",
-        "| case | q'' [kW/m²] | 정답 ΔT [K] | Cooper ΔT [K] | 상대오차 | 벽 증기분율 | (참고) 역산 R_p [µm] |",
-        "|---|---|---|---|---|---|---|",
-    ]
+
+    has_sites = any(np.isfinite(p.n_sites_prescribed) for p in gate.points)
+    has_vapor = any(np.isfinite(p.vapor_fraction) for p in gate.points)
+    header = "| case | q'' [kW/m²] | 정답 ΔT [K] | Cooper ΔT [K] | 상대오차 |"
+    rule = "|---|---|---|---|---|"
+    if has_sites:
+        header += " 처방 사이트 수 |"
+        rule += "---|"
+    if has_vapor:
+        header += " 벽 증기분율 |"
+        rule += "---|"
+    header += " (참고) 역산 R_p [µm] |"
+    rule += "---|"
+    lines += ["", "## 케이스별", "", header, rule]
     for p in gate.points:
-        lines.append(
+        row = (
             f"| {p.case_id} | {p.q_coarse_W_m2 / 1e3:.1f} | {p.delta_t_truth_K:.2f} | "
-            f"{p.delta_t_cooper_K:.2f} | {p.rel_error:+.1%} | {p.vapor_fraction:.3f} | "
-            f"{p.implied_roughness_um:.3g} |"
+            f"{p.delta_t_cooper_K:.2f} | {p.rel_error:+.1%} |"
         )
+        if has_sites:
+            row += f" {_fmt(p.n_sites_prescribed, '.0f')} |"
+        if has_vapor:
+            row += f" {_fmt(p.vapor_fraction, '.3f')} |"
+        row += f" {p.implied_roughness_um:.3g} |"
+        lines.append(row)
     lines += [
         "",
         "> 역산 R_p 는 **진단용**입니다. R_p = 1 µm 고정이 원칙이고, 이 값을 맞추려고 "
         "튜닝하면 '유체별 상수 없음' 주장이 깨집니다. 물리적으로 말이 되는 범위"
         "(대략 0.1~10 µm)를 벗어났는지만 보세요.",
-        "",
-        "## 차분 차수 수렴",
-        "",
     ]
-    for case_id, diag in manifest.get("wall_flux_diagnostics", {}).items():
-        if "verdict" in diag:
+
+    if gate.confound is not None:
+        c = gate.confound
+        lines += [
+            "",
+            "## 사이트 처방 교란 분해",
+            "",
+            "| 관계 | 지수 | R² |",
+            "|---|---|---|",
+            f"| q ∝ ΔT^a (정답 비등곡선) | {c.q_vs_delta_t.slope:.3f} | {c.q_vs_delta_t.r_squared:.4f} |",
+            f"| N ∝ ΔT^b (처방 사이트) | {c.sites_vs_delta_t.slope:.3f} | {c.sites_vs_delta_t.r_squared:.4f} |",
+            f"| q ∝ N^c | {c.q_vs_sites.slope:.3f} | {c.q_vs_sites.r_squared:.4f} |",
+            "",
+            f"- Cooper 가 가정하는 q ∝ ΔT^{1.0 / gate.slope_target:.2f} 와 비교할 것. "
+            "a ≈ b·c 이고 b 는 입력이므로 비등곡선 기울기는 사이트 처방에 묶여 있습니다.",
+            "- 사이트당 q'' [W/m²]: "
+            + ", ".join(f"{p.case_id} {v:.0f}" for p, v in zip(gate.points, c.q_per_site_W_m2)),
+            f"- 조건별 상대오차 ↔ 처방 사이트 수 순위상관 ρ = {c.error_site_spearman:+.2f}",
+        ]
+
+    sens = manifest.get("q_definition_sensitivity") or []
+    if sens:
+        lines += [
+            "",
+            "## q 정의 민감도",
+            "",
+            "판정은 `판정에 씀` 표시된 한 정의로만 합니다. 나머지는 결과가 좋은 정의를 골라 쓰지 "
+            "않았다는 것을 보이려고 같이 둡니다.",
+            "",
+            "| 정의 | 역할 | MAPE | ±기준 이내 | 판정 | 판정에 씀 |",
+            "|---|---|---|---|---|---|",
+        ]
+        for r in sens:
             lines.append(
-                f"- `{case_id}`: |1차−2차| {diag['rel_diff_1st_2nd']:.1%}, "
-                f"|2차−3차| {diag['rel_diff_2nd_3rd']:.1%} → {diag['verdict']}"
+                f"| `{r['q_definition']}` | {r['role']} | {r['mape']:.1%} | "
+                f"{r['n_within_band']}/{len(gate.points)} | {r['verdict']} | "
+                f"{'✓' if r['used_for_verdict'] else ''} |"
             )
+
+    audits = [
+        (case_id, diag) for case_id, diag in manifest.get("wall_flux_diagnostics", {}).items()
+        if "verdict" in diag
+    ]
+    if audits:
+        lines += ["", "## 차분 차수 수렴", ""]
+    for case_id, diag in audits:
+        lines.append(
+            f"- `{case_id}`: |1차−2차| {diag['rel_diff_1st_2nd']:.1%}, "
+            f"|2차−3차| {diag['rel_diff_2nd_3rd']:.1%} → {diag['verdict']}"
+        )
     lines += ["", "## 재현 정보", "", "```json",
               json.dumps(manifest.get("provenance", {}), indent=2, ensure_ascii=False), "```", ""]
     return "\n".join(lines)
@@ -227,6 +294,7 @@ def write_outputs(
             "rel_error": p.rel_error,
             "abs_rel_error": abs(p.rel_error),
             "vapor_fraction_wall": p.vapor_fraction,
+            "n_sites_prescribed": p.n_sites_prescribed,
             "implied_roughness_um": p.implied_roughness_um,
         }
         for p in gate.points

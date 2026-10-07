@@ -1,0 +1,31 @@
+# 정답 기포장 인계 표 → Cooper 역산 → 정답 ΔT 비교.
+#
+# HDF5 를 다시 읽지 않는다. 열유속은 정답 기포장 레포가 확정한 값
+# (Flash-X 경계와 같은 1차 벽 기울기 × phase-averaged k) 을 그대로 쓴다.
+# 원본 results/ground_truth_final.csv 를 받으면 ground_truth.csv 만 바꾸면 된다.
+
+run:
+  out_dir: outputs
+  label: "정답 기포장 q'' → Cooper → 정답 ΔT"
+
+ground_truth:
+  csv: data/ground_truth/ground_truth_final_snapshot.csv
+  q_definition: arith            # 보고서 기본. harm 은 동등 후보로 매번 같이 계산된다
+
+cooper:
+  fluid: FC-72
+  roughness_um: 1.0              # 고정. 튜닝 금지
+  allow_tuning: false
+  fluid_overrides: configs/fluids.yaml
+
+gate:
+  mape_max: 0.30                 # 기준은 그대로 둔다 — 결과를 보고 기준을 옮기지 않는다
+  slope_target: 0.33
+  slope_tol: 0.05
+  min_cases: 5
+  # BubbleML 은 사이트 수를 조건별 입력으로 처방한다(10/16/20/24/30개).
+  # auto 면 표의 input_n_sites_prescribed 를 보고 기울기를 참고로 내린다.
+  slope_role: auto
+
+report:
+  make_plots: true
