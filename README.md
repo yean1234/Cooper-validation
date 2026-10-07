@@ -228,7 +228,9 @@ scripts/
   make_synthetic.py  BubbleML 모양 합성 픽스처 생성기
 docs/ASSUMPTIONS.md  초안에서 내가 판단으로 정한 것들 — 실데이터 전에 확인할 목록
 docs/GROUND_TRUTH_CHECK.md  정답 q″ → Cooper 비교의 '불일치' 점검과 수정 내용
+docs/FC72_POOL_BOILING_DATA.md  Cooper 검증용 FC-72 풀비등 실측 데이터 조사 (BubbleML 대신)
 data/ground_truth/   정답 기포장 인계 표 스냅숏
+data/experiments/    실측 자료 목록 (fc72_pool_boiling_sources.csv)
 ```
 
 ---
