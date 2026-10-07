@@ -1,0 +1,12 @@
+# 정답 기포장 인계 표의 Cooper 게이트용 발췌 (스냅숏)
+# 원본: tpgk4456-ui/bubbleml-poolboiling-analysis  results/ground_truth_final.csv
+# 값 출처: reports/ground_truth_report.pdf 2쪽(입력·사이트 수), 5쪽(열유속 정의별 저장값), 8쪽(사이트 처방)
+# 기존 분석 값 기준 revision b327054814d5045d99521fe85d91cc46e182df0f / 데이터 revision 262b6556bba330187bae0dfbd6f04e0622c3c853
+# ΔT_sup = Twall − 58 °C (시뮬레이션 입력). q 는 burn-in 300 · 1701 프레임 · 히터 전체 336셀 · 결측 0, 2D 값.
+# 원본 CSV 를 받을 수 있으면 이 파일 대신 그 CSV 를 ground_truth.csv 로 지정할 것 (같은 컬럼명을 읽는다).
+condition,input_Twall_C,input_dT_sup_K,input_n_sites_prescribed,confirmed_n_sites_active_2d,confirmed_q_mix_arith_2d_W_m2,confirmed_q_mix_harm_2d_W_m2,confirmed_q_kl_all_2d_W_m2,confirmed_q_legacy_2d_W_m2,confirmed_q_time_std_2d_W_m2
+Twall_80,80,22,10,10,39016.1,35709.3,49296.2,17739.3,4897.57
+Twall_86,86,28,16,16,58544.3,53186.1,74822.9,26397.5,6079.11
+Twall_90,90,32,20,20,69424.7,63088.8,88540.4,31274.5,6943.94
+Twall_94,94,36,24,24,81612.3,74382.4,103399,36857.9,8021.86
+Twall_100,100,42,30,29,97913.2,88740.5,125396,43889.3,9469.21

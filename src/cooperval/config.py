@@ -78,6 +78,14 @@ DEFAULTS: dict[str, Any] = {
         "slope_target": 0.33,
         "slope_tol": 0.05,
         "min_cases": 5,
+        # 기울기 기준의 역할. auto → 케이스별 처방 사이트 수가 주어지고 조건마다 다르면
+        # 'reference'(참고만, 판정 제외), 아니면 'criterion'. 사이트 수가 입력인 자료에서
+        # 기울기는 상관식이 아니라 사이트 처방을 잰다 (정답 기포장 보고서 8쪽).
+        "slope_role": "auto",           # auto | criterion | reference
+    },
+    "ground_truth": {
+        "csv": None,                    # 정답 기포장 인계 표. 주면 HDF5 대신 이 표의 q'' 를 쓴다
+        "q_definition": "arith",        # arith(기본) | harm(동등 후보) | kl | legacy (참고)
     },
     "wall_function": {
         "enabled": False,               # 10월 정식 게이트용. 9/21 일정에서는 끈다.

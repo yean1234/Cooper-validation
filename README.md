@@ -45,6 +45,20 @@ BubbleML 원본을 **거친 입력**으로 뭉갠 뒤, 거기서 나온 벽 열�
 있기 때문이다. 그래서 벽 과열도가 다른 케이스를 5개 이상 모아 **비등곡선 기울기**를 본다
 (`gate.min_cases`, 기본 5). 케이스가 모자라면 코드가 `판정 불가` 를 낸다.
 
+### 기울기 기준의 전제 — 사이트 수가 처방된 자료에서는 참고만
+
+Cooper의 `q″^0.67` 은 실제 표면에서 과열도가 오르면 사이트가 저절로 늘어나는 효과를 품고 있다.
+BubbleML은 사이트 수를 조건별 **입력**으로 넣는다(Twall 80→100 °C 에 10→30개). 그러면
+비등곡선 기울기는 누가 사이트를 몇 개 넣었는지로 정해진다(`q ∝ N^0.84`, R² 0.9997).
+그래서 케이스별 처방 사이트 수가 주어지고 조건마다 다르면 기울기는 **판정에서 빼고 참고로만**
+보고한다(`gate.slope_role: auto`). 판정은 조건별 오차(MAPE)로 한다. 자세한 점검은
+[`docs/GROUND_TRUTH_CHECK.md`](docs/GROUND_TRUTH_CHECK.md) 에 있다.
+
+| 판정 (사이트 처방 자료) | 조건 |
+|---|---|
+| `통과 (조건별 크기 일치)` | MAPE O — 기울기는 사이트 수가 물리로 정해지는 자료에서 따로 확인 |
+| `불통과 (조건별 크기 이탈)` | MAPE X — 기준·R_p·q 정의를 바꿔 맞추지 않는다 |
+
 ### 판정은 중단/진행이 아니라 경로 선택
 
 멘토 조언(9/9)대로 자폭 분기를 만들지 않는다.
@@ -84,8 +98,25 @@ BubbleML HDF5 **여러 개** (= 벽 과열도가 서로 다른 케이스들). �
 4. 위 셋 다 실패하면 **에러로 중단** (조용히 추측하지 않음)
 
 ### 3.3 설정 파일
-`configs/default.yaml` (실데이터) / `configs/synthetic.yaml` (합성 데이터).
+`configs/default.yaml` (실데이터) / `configs/synthetic.yaml` (합성 데이터) /
+`configs/ground_truth.yaml` (정답 기포장 인계 표).
 유체 물성은 `configs/fluids.yaml` 로 덮어쓴다.
+
+### 3.4 정답 기포장 인계 표 (HDF5 대신)
+정답 기포장 레포가 열유속 정의를 확정했다 — Flash-X 경계와 같은 1차 벽 기울기 ×
+phase-averaged k (산술 기본, 조화 동등 후보). `ground_truth.csv` 를 주면 이 저장소는
+q″ 를 다시 뽑지 않고 그 값을 그대로 Cooper 에 넣는다.
+
+| 컬럼 | 쓰임 |
+|---|---|
+| `input_dT_sup_K` | 정답 ΔT (Twall − 58 °C) |
+| `input_n_sites_prescribed` | 처방 사이트 수 — 기울기를 판정에서 뺄지 정하는 근거 |
+| `confirmed_q_mix_arith_2d_W_m2` | 판정에 쓰는 q″ (기본) |
+| `confirmed_q_mix_harm_2d_W_m2` | 동등 후보 — 판정이 갈리는지 매번 같이 계산 |
+| `confirmed_q_kl_all_2d_W_m2`, `confirmed_q_legacy_2d_W_m2` | 참고 — 표에만 남김 |
+
+원본 레포가 비공개라 지금은 보고서 PDF 값으로 만든 스냅숏
+`data/ground_truth/ground_truth_final_snapshot.csv` 를 쓴다.
 
 ---
 
@@ -155,11 +186,16 @@ python scripts/run_gate.py --config configs/synthetic.yaml
 #   3) 실행
 python scripts/run_gate.py --config configs/default.yaml
 
+# (c) 정답 기포장 인계 표 → Cooper → 정답 ΔT
+python scripts/run_gate.py --config configs/ground_truth.yaml
+python scripts/run_gate.py --config configs/ground_truth.yaml --ground-truth path/to/ground_truth_final.csv
+python scripts/run_gate.py --config configs/ground_truth.yaml --slope-role criterion   # 옛 판정 재현
+
 # 진단용
 python scripts/run_gate.py --config configs/default.yaml --order 1        # 1차 기준으로 재계산
 python scripts/run_gate.py --config configs/default.yaml --exclude-mixed-cells  # 옛 방식 편향 측정
 
-pytest            # 26개 단위/통합 테스트
+pytest            # 35개 단위/통합 테스트
 ```
 
 ### 게이트 분기 재현 (합성 데이터)
@@ -182,7 +218,8 @@ src/cooperval/
   wallflux.py      q″ 추출 (섞인 셀 포함, 1/2/3차 + 수렴 감사)
   coarsen.py       뭉개기 → 거친 입력
   cooper.py        Cooper 상관식 정방향/역산, R_p 잠금
-  gate.py          MAPE + log-log 기울기 → 판정/경로
+  gate.py          MAPE + log-log 기울기 → 판정/경로 (사이트 처방 자료면 기울기는 참고)
+  ground_truth.py  정답 기포장 인계 표 로더 (확정 q″, 처방 사이트 수)
   wallfunction.py  Kader 벽함수 (10월 게이트용, 기본 비활성)
   report.py        CSV/JSON/그림/요약
   pipeline.py      전체 오케스트레이션
@@ -190,6 +227,8 @@ scripts/
   run_gate.py      실행기 (CLI)
   make_synthetic.py  BubbleML 모양 합성 픽스처 생성기
 docs/ASSUMPTIONS.md  초안에서 내가 판단으로 정한 것들 — 실데이터 전에 확인할 목록
+docs/GROUND_TRUTH_CHECK.md  정답 q″ → Cooper 비교의 '불일치' 점검과 수정 내용
+data/ground_truth/   정답 기포장 인계 표 스냅숏
 ```
 
 ---
@@ -201,3 +240,6 @@ docs/ASSUMPTIONS.md  초안에서 내가 판단으로 정한 것들 — 실데�
   10월 정식 게이트에서 **정답 ΔT / Cooper ΔT / 벽함수 ΔT** 셋을 나란히 비교한다.
 - **δT(coarsening 기준축)**: 9/21 노트대로 이 게이트에는 쓰이지 않아 구현하지 않았다.
 - **실제 BubbleML 스펙 확인**: `docs/ASSUMPTIONS.md` 의 ★ 항목들.
+- **HDF5 경로를 정답 정의에 맞추기**: dfun 부호(증기가 양수), 1차 벽 기울기, Heaviside 폭,
+  히터 범위, 좌표 키, T_sat 58 °C 가 정답 보고서와 다르다. 목록은
+  `docs/GROUND_TRUTH_CHECK.md` 6절. 정답 표 경로(3.4)는 영향을 받지 않는다.
