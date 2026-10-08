@@ -186,7 +186,11 @@ python scripts/run_gate.py --config configs/synthetic.yaml
 #   3) 실행
 python scripts/run_gate.py --config configs/default.yaml
 
-# (c) 정답 기포장 인계 표 → Cooper → 정답 ΔT
+# (c) 실측 비등곡선으로 Cooper 검증 (BubbleML 대신 — docs/COOPER_EXPERIMENT_CHECK.md)
+python scripts/run_gate.py --config configs/experiments.yaml
+python scripts/run_gate.py --config configs/experiments.yaml --experiments my_curves.csv --q-min 30000
+
+# (d) 정답 기포장 인계 표 → Cooper → 정답 ΔT
 python scripts/run_gate.py --config configs/ground_truth.yaml
 python scripts/run_gate.py --config configs/ground_truth.yaml --ground-truth path/to/ground_truth_final.csv
 python scripts/run_gate.py --config configs/ground_truth.yaml --slope-role criterion   # 옛 판정 재현
@@ -195,7 +199,7 @@ python scripts/run_gate.py --config configs/ground_truth.yaml --slope-role crite
 python scripts/run_gate.py --config configs/default.yaml --order 1        # 1차 기준으로 재계산
 python scripts/run_gate.py --config configs/default.yaml --exclude-mixed-cells  # 옛 방식 편향 측정
 
-pytest            # 35개 단위/통합 테스트
+pytest            # 46개 단위/통합 테스트
 ```
 
 ### 게이트 분기 재현 (합성 데이터)
@@ -220,6 +224,7 @@ src/cooperval/
   cooper.py        Cooper 상관식 정방향/역산, R_p 잠금
   gate.py          MAPE + log-log 기울기 → 판정/경로 (사이트 처방 자료면 기울기는 참고)
   ground_truth.py  정답 기포장 인계 표 로더 (확정 q″, 처방 사이트 수)
+  experiments.py   실측 비등곡선 → 곡선별 Cooper 게이트, 압력 항, 평가 구간 민감도
   wallfunction.py  Kader 벽함수 (10월 게이트용, 기본 비활성)
   report.py        CSV/JSON/그림/요약
   pipeline.py      전체 오케스트레이션
@@ -229,8 +234,10 @@ scripts/
 docs/ASSUMPTIONS.md  초안에서 내가 판단으로 정한 것들 — 실데이터 전에 확인할 목록
 docs/GROUND_TRUTH_CHECK.md  정답 q″ → Cooper 비교의 '불일치' 점검과 수정 내용
 docs/FC72_POOL_BOILING_DATA.md  Cooper 검증용 FC-72 풀비등 실측 데이터 조사 (BubbleML 대신)
+docs/COOPER_EXPERIMENT_CHECK.md  실측 곡선 15개로 돌린 Cooper 게이트 결과와 해석
+docs/results/experiments/  위 결과의 summary.md 와 그림
 data/ground_truth/   정답 기포장 인계 표 스냅숏
-data/experiments/    실측 자료 목록 (fc72_pool_boiling_sources.csv)
+data/experiments/    실측 자료 목록과 곡선 (Zimmermann 공개자료, Mudawar 1990·Parker 2008 디지타이즈)
 ```
 
 ---

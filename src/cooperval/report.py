@@ -455,7 +455,8 @@ def plot_pressure_trends(trends, q_ref: float, path: Path, dpi: int) -> None:
     for ax, t in zip(axes, trends):
         pr = np.array(t.reduced_pressure)
         ax.plot(pr, t.dT_meas, "o-", ms=7, lw=2, color=C_TRUTH,
-                label=rf"Measured  ($\propto p_r^{{{t.fit_meas.slope:.2f}}}$)")
+                label=rf"Measured  ($\propto p_r^{{{t.fit_meas.slope:.2f}}}$ ± {t.fit_meas.slope_stderr:.2f}, "
+                      f"{len(t.curve_ids)} pressures)")
         ax.plot(pr, t.dT_cooper, "s--", ms=6, lw=2, mfc="none", mew=1.5, color=C_PRED,
                 label=rf"Cooper  ($\propto p_r^{{{t.fit_cooper.slope:.2f}}}$)")
         ax.set_xscale("log")
@@ -479,7 +480,6 @@ def _f(v, spec):
 
 def _experiment_summary(run, cfg, manifest: dict) -> str:
     rows = [r.to_row() for r in run.results]
-    judged = [r for r in run.results if r.gate and r.gate.enough_cases]
     counts = run.verdict_counts
     q_min, q_max_frac = run.window
     lines = [
@@ -551,6 +551,28 @@ def _experiment_summary(run, cfg, manifest: dict) -> str:
                 f"{s['n_pass']} | {s['n_conditional']} | {s['n_mismatch']} | {_f(s['median_mape'], '.0%')} | "
                 f"{_f(s['median_slope'], '.3f')} |"
             )
+    if run.sensitivity and run.sensitivity[0].get("per_curve"):
+        short = {"통과": "통과", "판정 불가": "—"}
+        head = " | ".join(f"{s['q_min_W_m2'] / 1e3:.0f}k–{s['q_max_frac']:.1f}" for s in run.sensitivity)
+        lines += [
+            "",
+            "### 곡선별 — 구간을 바꿔도 판정이 같은가",
+            "",
+            "칸: 기울기 / 부호 오차 / 판정 (조건부 = 형태 일치·크기 이탈). 기울기 판정이 구간마다 뒤집히는 곡선은 "
+            "한 개의 거듭제곱(Cooper 형태)으로 설명되지 않고 휘어 있다는 뜻이다. 부호 오차의 방향과 크기가 "
+            "구간과 무관하면 그쪽이 견고한 결론이다.",
+            "",
+            f"| 곡선 | {head} |",
+            "|---|" + "---|" * len(run.sensitivity),
+        ]
+        for r in run.results:
+            cells = []
+            for s in run.sensitivity:
+                d = s["per_curve"].get(r.curve.key, {})
+                v = d.get("verdict", "—")
+                v = short.get(v, "조건부" if v.startswith("조건부") else "불일치" if v.startswith("불일치") else v)
+                cells.append(f"{_f(d.get('slope', float('nan')), '.2f')} / {_f(d.get('bias', float('nan')), '+.0%')} / {v}")
+            lines.append(f"| {r.curve.curve_id} | " + " | ".join(cells) + " |")
     lines += ["", "## 재현 정보", "", "```json",
               json.dumps(manifest.get("provenance", {}), indent=2, ensure_ascii=False), "```", ""]
     return "\n".join(lines)

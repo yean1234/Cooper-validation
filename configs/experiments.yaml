@@ -10,7 +10,9 @@ run:
 
 experiments:
   csv:
-    - data/experiments/zimmermann2020_fc72_smooth.csv
+    - data/experiments/zimmermann2020_fc72_smooth.csv     # 공개 수치 자료, 수평(추정), 6개 압력
+    - data/experiments/mudawar1990_fig7_digitized.csv     # 수직 12.7 mm, 1/2/3 atm (스캔 그림 디지타이즈)
+    - data/experiments/parker2008_fig4_14a_digitized.csv  # 10 mm, 0~180° (벡터 그림 좌표 추출)
   q_min_W_m2: 2.0e4        # 끓기 시작 직후 부분 핵비등 제외 (판단값 — 결과의 민감도 표 참고)
   q_max_frac: 0.8          # 곡선 최대 q 의 80% 까지 (임계열유속 직전 제외, 판단값)
   q_ref_W_m2: 7.2e4        # 탱크 CPU 작동점

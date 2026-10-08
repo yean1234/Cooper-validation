@@ -1,0 +1,77 @@
+# Mudawar & Anderson (1990) J. Electronic Packaging 112(4):375-382, doi:10.1115/1.2904392, Fig. 7
+# "Effect of pressurization on boiling of FC-72 on a flat surface" — VERTICAL 12.7x12.7 mm vapor-blasted Cu chip,
+# saturated FC-72 at 1/2/3 atm (Tsat 56/78/93 C per Table 2), steady-state power increments, deaerated.
+# DIGITIZED from the scanned figure (300 dpi): three independent methods (CV template matching, calibrated grid,
+# curve tracing) found the same 67 markers; final = median, spread <= 0.85% dT / 0.65% q.
+# Checks: CHF arrows/legend within 0.5% (1, 3 atm); 1 atm vs Fig 5 copy <= 1.2%; 1 atm vs Mudawar & Anderson 1993
+# Table 1(a) knots <= 1%. T85/legend indicator markers, incipience and CHF arrows excluded.
+# Triangles (3 atm) use the area-centroid convention; a bbox-centre reading would give q about +2.4%.
+# digitize_flag 'uncertain' = partially hidden marker in the CHF cluster (about +/-1.5%).
+source,curve_id,fluid,surface,orientation_deg,branch,p_Pa,T_sat_C,q_W_m2,dT_K,digitize_n_methods,digitize_flag
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,3956.0,6.086,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,6416.3,7.762,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,8906.3,9.174,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,12855.4,10.03,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,16798.0,10.5,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,24219.8,11.02,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,33610.0,11.43,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,44635.0,11.95,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,55769.6,12.67,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,72629.4,13.6,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,93340.5,15.22,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,119954.0,17.62,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,144683.5,23.49,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,173526.3,31.264,3,ok
+Mudawar1990,M1990_1atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,101325.0,56,202015.4,37.972,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,2367.0,3.499,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,4708.8,4.829,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,7051.0,6.046,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,8836.1,6.75,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,12856.2,7.377,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,17093.8,7.662,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,20040.0,7.936,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,28297.4,8.515,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,38444.8,8.873,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,50756.2,8.986,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,64903.0,9.33,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,84871.7,9.864,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,108271.5,10.99,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,124108.9,11.66,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,142318.4,12.489,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,152647.2,13.43,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,163714.9,14.5,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,174875.5,15.75,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,187788.6,18.18,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,200883.8,20.21,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,213128.3,23.022,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,222683.5,26.21,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,229455.6,29.553,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,246228.7,38.002,3,uncertain
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,250554.9,42.819,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,252900.0,47.263,3,ok
+Mudawar1990,M1990_2atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,202650.0,78,261500.0,52.284,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,4123.5,4.366,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,7063.2,4.74,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,8170.3,4.921,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,9500.4,5.118,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,12965.4,5.641,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,17086.4,6.083,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,21164.0,6.558,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,27082.0,7.128,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,34712.0,7.603,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,43588.7,8.113,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,54719.8,8.757,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,65354.3,9.196,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,82233.5,10.006,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,101689.4,10.781,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,130483.8,12.267,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,139533.1,13.081,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,148550.0,14.712,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,163969.2,17.283,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,174091.5,19.844,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,193334.5,24.462,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,208580.5,28.189,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,227676.8,32.453,3,ok
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,238060.5,34.31,3,uncertain
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,250034.4,36.787,3,uncertain
+Mudawar1990,M1990_3atm,FC-72,vapor-blasted Cu 12.7mm,90,asc,303975.0,93,255311.6,38.916,3,ok

@@ -18,6 +18,7 @@ Cooper 오차처럼 보이기 때문이다 (같은 열유속에서 실험끼리 
 
 from __future__ import annotations
 
+import io
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -62,8 +63,19 @@ class Curve:
         return self.branch == "asc"
 
 
+def read_commented_csv(path: Path) -> pd.DataFrame:
+    """'#' 로 시작하는 줄만 출처 주석으로 건너뛴다.
+
+    pandas 의 comment='#' 는 줄 중간의 '#' 뒤도 잘라 버려서 값에 '#' 가 들어가면
+    (예: '#1500 emery') 컬럼이 밀린다.
+    """
+    with open(path, encoding="utf-8") as fh:
+        body = "".join(line for line in fh if not line.lstrip().startswith("#"))
+    return pd.read_csv(io.StringIO(body))
+
+
 def _read(path: Path) -> pd.DataFrame:
-    df = pd.read_csv(path, comment="#")
+    df = read_commented_csv(path)
     missing = [c for c in REQUIRED if c not in df.columns]
     if missing:
         raise KeyError(f"{path}: 필수 컬럼 {missing} 이 없습니다. 있는 컬럼: {list(df.columns)}")
@@ -285,7 +297,17 @@ def window_sensitivity(curves: list[Curve], cfg) -> list[dict]:
         rs = [evaluate_curve(c, cfg, q_min=float(q_min), q_max_frac=float(q_max_frac)) for c in curves]
         judged = [r for r in rs if r.gate and r.gate.enough_cases]
         verdicts = [r.verdict for r in judged]
+        per_curve = {
+            r.curve.key: {
+                "slope": r.gate.fit.slope if r.gate else float("nan"),
+                "mape": r.gate.mape if r.gate else float("nan"),
+                "bias": r.bias,
+                "verdict": r.verdict,
+            }
+            for r in rs
+        }
         rows.append({
+            "per_curve": per_curve,
             "q_min_W_m2": float(q_min), "q_max_frac": float(q_max_frac),
             "n_judged": len(judged), "n_curves": len(rs),
             "n_pass": sum(v == "통과" for v in verdicts),

@@ -128,3 +128,35 @@ def test_pipeline_experiment_mode_end_to_end(tmp_path):
     summary = (out / "summary.md").read_text(encoding="utf-8")
     assert "압력 항" in summary and "평가 구간 민감도" in summary
     assert sum(result["experiments"].verdict_counts.values()) == 6
+
+
+MUDAWAR = ROOT / "data" / "experiments" / "mudawar1990_fig7_digitized.csv"
+PARKER = ROOT / "data" / "experiments" / "parker2008_fig4_14a_digitized.csv"
+
+
+def test_hash_inside_a_value_is_not_treated_as_a_comment(tmp_path):
+    """'#1500 emery' 같은 값이 잘리면 컬럼이 밀린다 — 줄 맨 앞 '#' 만 주석이다."""
+    path = tmp_path / "c.csv"
+    rows = pd.DataFrame(_cooper_rows(101325.0, Q))
+    rows["surface"] = "plane Cu #1500 emery"
+    path.write_text("# source note\n" + rows.to_csv(index=False), encoding="utf-8")
+    (curve,) = load_curves(path)
+    assert curve.surface == "plane Cu #1500 emery"
+    assert curve.q.size == Q.size
+
+
+def test_digitized_vertical_sources_load():
+    curves = {c.curve_id: c for c in load_curves([MUDAWAR, PARKER])}
+    assert {k: v.q.size for k, v in curves.items() if k.startswith("M1990")} == {
+        "M1990_1atm": 15, "M1990_2atm": 27, "M1990_3atm": 25}
+    assert sum(v.q.size for k, v in curves.items() if k.startswith("P2008")) == 155
+    assert curves["M1990_1atm"].orientation_deg == 90
+    assert curves["P2008_90deg"].orientation_deg == 90
+
+
+def test_vertical_pressure_term_matches_cooper_but_magnitude_does_not():
+    """수직 12.7 mm (Mudawar 1990): 압력 지수는 Cooper 와 같고, 크기는 Cooper 가 높다."""
+    run = run_experiments(load_curves(MUDAWAR), load_config())
+    (trend,) = run.trends
+    assert trend.fit_meas.slope == pytest.approx(trend.fit_cooper.slope, abs=0.05)
+    assert all(r.dT_cooper_at_ref > 1.3 * r.dT_meas_at_ref for r in run.results)

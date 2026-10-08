@@ -95,7 +95,9 @@ def load_ground_truth(path: str | Path) -> list[GroundTruthCondition]:
             f"정답 CSV 가 없습니다: {path}. 정답 기포장 레포의 results/ground_truth_final.csv 를 "
             "받아 두거나 data/ground_truth/ground_truth_final_snapshot.csv 를 쓰세요."
         )
-    df = _orient(pd.read_csv(path, comment="#"))
+    from .experiments import read_commented_csv
+
+    df = _orient(read_commented_csv(path))
 
     available = {k: d for k, d in Q_DEFINITIONS.items() if d.column in df.columns}
     if not available:
