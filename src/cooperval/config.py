@@ -87,6 +87,16 @@ DEFAULTS: dict[str, Any] = {
         "csv": None,                    # 정답 기포장 인계 표. 주면 HDF5 대신 이 표의 q'' 를 쓴다
         "q_definition": "arith",        # arith(기본) | harm(동등 후보) | kl | legacy (참고)
     },
+    "experiments": {
+        "csv": None,                    # 실측 비등곡선 CSV (경로 또는 목록). 주면 실측 게이트를 돈다
+        # 평가 구간 — 판단값. 끓기 시작 직후(부분 핵비등)와 임계열유속 직전(곡선이 눕는 구간)을 뺀다.
+        "q_min_W_m2": 2.0e4,
+        "q_max_frac": 0.8,              # 곡선 최대 열유속 대비 상한
+        "q_ref_W_m2": 7.2e4,            # 탱크 CPU 작동점 — 곡선마다 이 점의 실측/Cooper ΔT 를 따로 비교
+        "window_sensitivity": [         # 구간을 바꿔도 결론이 같은지 보는 표
+            [1.0e4, 1.0], [2.0e4, 1.0], [2.0e4, 0.8], [3.0e4, 0.8], [5.0e4, 0.8],
+        ],
+    },
     "wall_function": {
         "enabled": False,               # 10월 정식 게이트용. 9/21 일정에서는 끈다.
         "model": "kader",

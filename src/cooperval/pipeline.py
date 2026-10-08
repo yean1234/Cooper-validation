@@ -7,6 +7,11 @@
       → [gate]      정답 ΔT_sup 과 비교           (MAPE + log-log 기울기)
       → [report]    CSV / JSON / 그림 / 요약
 
+실측 모드 (``experiments.csv`` 를 주면):
+    실제 표면에서 잰 (q'', ΔT) 비등곡선 → [cooper] 곡선마다 그 압력으로 ΔT 예측
+      → [gate] 곡선별 MAPE + 기울기, 압력 항, 평가 구간 민감도 → [report]
+    BubbleML 은 사이트 수를 처방해서 Cooper 를 채점할 수 없으므로 Cooper 검증은 이 경로로 한다.
+
 정답 표 모드 (``ground_truth.csv`` 를 주면):
     정답 기포장 레포가 확정한 q'' (1차 벽 기울기 × phase-averaged k)
       → [cooper] ΔT_sup 예측 → [gate] 정답 ΔT_sup 과 비교 → [report]
@@ -27,9 +32,10 @@ from .coarsen import coarsen
 from .config import Config
 from .cooper import CooperModel
 from .fluids import get_fluid, load_fluid_library
+from .experiments import load_curves, run_experiments
 from .gate import evaluate_gate, make_point
 from .ground_truth import Q_DEFINITIONS, load_ground_truth
-from .report import write_outputs
+from .report import write_experiment_outputs, write_outputs
 from .wallflux import compute_wall_flux
 
 log = logging.getLogger(__name__)
@@ -76,6 +82,8 @@ def run_pipeline(cfg: Config) -> dict:
     run_id = cfg.get("run.run_id") or datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     out_dir = Path(cfg.get("run.out_dir", "outputs")) / run_id
 
+    if cfg.get("experiments.csv"):
+        return _run_from_experiments(cfg, model, run_id, out_dir)
     if cfg.get("ground_truth.csv"):
         return _run_from_ground_truth(cfg, model, fluid, run_id, out_dir)
 
@@ -252,4 +260,45 @@ def _run_from_ground_truth(cfg: Config, model: CooperModel, fluid, run_id: str, 
         dpi=int(cfg.get("report.dpi", 160)),
     )
     return {"run_id": run_id, "out_dir": str(out_dir), "gate": gate, "files": written,
+            "manifest": manifest}
+
+
+def _run_from_experiments(cfg: Config, model: CooperModel, run_id: str, out_dir: Path) -> dict:
+    paths = cfg.get("experiments.csv")
+    paths = [paths] if isinstance(paths, (str, Path)) else list(paths)
+    curves = load_curves(paths, default_fluid=cfg.get("cooper.fluid", "FC-72"))
+    log.info("실측 곡선 %d개를 읽었습니다 (%d개 파일)", len(curves), len(paths))
+    run = run_experiments(curves, cfg)
+
+    manifest = {
+        "run_id": run_id,
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "git_sha": _git_sha(),
+        "label": cfg.get("run.label"),
+        "mode": "experiments",
+        "config": cfg.to_dict(),
+        "config_source": cfg.source_path,
+        "cooper_model_at_1atm": model.describe(),
+        "inputs": [str(p) for p in paths],
+        "input_digests": {str(p): _file_digest(Path(p)) for p in paths},
+        "curves": [
+            {"key": c.key, "file": c.file, "fluid": c.fluid, "surface": c.surface,
+             "orientation_deg": c.orientation_deg, "p_Pa": c.p_Pa, "n_points": int(c.q.size)}
+            for c in curves
+        ],
+        "provenance": {
+            "dT_source": "실측 (각 출처의 벽 과열도 정의 그대로)",
+            "q_source": "실측 (각 출처의 열유속 정의 그대로)",
+            "window": {"q_min_W_m2": run.window[0], "q_max_frac": run.window[1]},
+            "q_ref_W_m2": run.q_ref,
+            "roughness_um": cfg.get("cooper.roughness_um"),
+            "roughness_tuned": cfg.get("cooper.allow_tuning"),
+            "slope_role": "criterion (실측 곡선에는 사이트 수 처방이 없음)",
+        },
+    }
+    written = write_experiment_outputs(
+        out_dir=out_dir, run=run, cfg=cfg, manifest=manifest,
+        make_plots=bool(cfg.get("report.make_plots", True)), dpi=int(cfg.get("report.dpi", 160)),
+    )
+    return {"run_id": run_id, "out_dir": str(out_dir), "experiments": run, "files": written,
             "manifest": manifest}

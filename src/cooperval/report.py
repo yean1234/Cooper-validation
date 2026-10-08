@@ -336,3 +336,280 @@ def write_outputs(
             written["order_audit"] = str(audit)
 
     return written
+
+
+# ----------------------------------------------------------------------
+# 실측 비등곡선 게이트 산출물
+# ----------------------------------------------------------------------
+C_MUTED = "#898781"
+
+
+def _plain_log_ticks(ax) -> None:
+    """log 축 눈금을 10^n 대신 그냥 숫자로 (6, 10, 20, 30 …)."""
+    from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+
+    fmt = FuncFormatter(lambda v, _: f"{v:g}")
+    for axis in (ax.xaxis, ax.yaxis):
+        axis.set_major_locator(LogLocator(base=10, subs=(1.0, 2.0, 3.0, 5.0)))
+        axis.set_major_formatter(fmt)
+        axis.set_minor_formatter(NullFormatter())
+
+
+def _panel_grid(n: int, ncols: int = 3):
+    ncols = min(ncols, n)
+    nrows = int(np.ceil(n / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(4.1 * ncols, 3.5 * nrows + 0.5),
+                             facecolor=SURFACE, squeeze=False)
+    axes = list(axes.flat)
+    for ax in axes[n:]:
+        ax.set_visible(False)
+    return fig, axes
+
+
+def plot_experiment_curves(results, q_ref: float, path: Path, dpi: int) -> None:
+    """곡선마다 한 칸: 실측 점(평가 구간 안 = 채운 점, 밖 = 회색 빈 점)과 Cooper 선."""
+    fig, axes = _panel_grid(len(results))
+    for i, (ax, r) in enumerate(zip(axes, results)):
+        c = r.curve
+        inside = r.in_window
+        ax.plot(c.q[~inside] / 1e3, c.dT[~inside], "o", ms=6, mfc="none", mew=1.2, color=C_MUTED,
+                label="Measured (outside window)")
+        ax.plot(c.q[inside] / 1e3, c.dT[inside], "o", ms=7, color=C_TRUTH, label="Measured (gate window)")
+        qq = np.geomspace(c.q.min(), c.q.max(), 60)
+        ax.plot(qq / 1e3, r.model.delta_t_from_q(qq), "-", lw=2, color=C_PRED, label="Cooper (Rp = 1 µm)")
+        ax.axvline(q_ref / 1e3, color=INK_MUTED, lw=1.0, ls=":", zorder=0,
+                   label=f"CPU operating point ({q_ref / 1e3:.0f} kW/m²)")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        _plain_log_ticks(ax)
+        g = r.gate
+        stats = (f"slope {g.fit.slope:.2f} · MAPE {g.mape:.0%}" if g else "too few points")
+        ax.set_title(f"{c.curve_id}  ({c.p_Pa / 1e5:.2f} bar, {c.orientation_deg:g}°)\n{stats}",
+                     color=INK, fontsize=9, loc="left")
+        ax.set_xlabel("q'' [kW/m²]", fontsize=8)
+        ax.set_ylabel("ΔT_sat [K]", fontsize=8)
+        _style(ax)
+        if i == 0:
+            # 첫 칸만 선에 직접 이름을 붙이고, 나머지는 그림 전체 범례로 읽는다.
+            ax.annotate("Cooper", xy=(qq[0] / 1e3, float(r.model.delta_t_from_q(qq[0]))),
+                        xytext=(2, 8), textcoords="offset points", ha="left", fontsize=8, color=INK_MUTED)
+    handles, labels = axes[0].get_legend_handles_labels()
+    leg = fig.legend(handles, labels, loc="upper center", ncol=4, frameon=False, fontsize=9)
+    for text in leg.get_texts():
+        text.set_color(INK_MUTED)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.savefig(path, dpi=dpi, facecolor=SURFACE)
+    plt.close(fig)
+
+
+# 산점도 전체-쌍 검증을 통과하는 앞 세 칸(blue, orange, aqua) + 모양으로 출처를 이중 표기한다.
+SOURCE_STYLES = [("#2a78d6", "o"), ("#eb6834", "s"), ("#1baf7a", "^")]
+
+
+def plot_experiment_parity(results, mape_max: float, path: Path, dpi: int) -> None:
+    by_source: dict[str, tuple[list, list]] = {}
+    for r in results:
+        m, p = by_source.setdefault(r.curve.source, ([], []))
+        m.extend(r.curve.dT[r.in_window])
+        p.extend(r.dT_cooper[r.in_window])
+    by_source = {k: v for k, v in by_source.items() if v[0]}
+    if not by_source:
+        return
+    meas = np.concatenate([v[0] for v in by_source.values()])
+    pred = np.concatenate([v[1] for v in by_source.values()])
+    lo = 0.8 * min(meas.min(), pred.min())
+    hi = 1.2 * max(meas.max(), pred.max())
+    line = np.array([lo, hi])
+    fig, ax = plt.subplots(figsize=(5.2, 5.0), facecolor=SURFACE)
+    ax.fill_between(line, line * (1 - mape_max), line * (1 + mape_max), color=GRID, alpha=0.55, lw=0)
+    ax.plot(line, line, "-", lw=1.2, color=INK_MUTED, alpha=0.7)
+    multi = len(by_source) > 1
+    for i, (source, (m, p)) in enumerate(by_source.items()):
+        color, marker = SOURCE_STYLES[i % len(SOURCE_STYLES)] if multi else (C_TRUTH, "o")
+        ax.plot(m, p, marker, ms=7, color=color, mec=SURFACE, mew=1.0, label=source, ls="none")
+    if multi:
+        if len(by_source) > len(SOURCE_STYLES):
+            log_note = "colours repeat beyond three sources; marker shape still differs"
+            ax.text(0.02, 0.02, log_note, transform=ax.transAxes, fontsize=7, color=INK_MUTED)
+        leg = ax.legend(frameon=False, fontsize=8, loc="upper left", title="Source", title_fontsize=8)
+        for text in leg.get_texts():
+            text.set_color(INK_MUTED)
+    ax.annotate(f"±{mape_max:.0%} band", xy=(hi * 0.9, hi * 0.9 * (1 - mape_max)), xytext=(0, -12),
+                textcoords="offset points", ha="right", fontsize=9, color=INK_MUTED)
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    ax.set_aspect("equal")
+    ax.set_xlabel("Measured ΔT_sat [K]")
+    ax.set_ylabel("Cooper ΔT_sat [K]")
+    ax.set_title("Parity — points inside the gate window", color=INK, fontsize=11, loc="left")
+    _style(ax)
+    fig.tight_layout()
+    fig.savefig(path, dpi=dpi, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def plot_pressure_trends(trends, q_ref: float, path: Path, dpi: int) -> None:
+    if not trends:
+        return
+    fig, axes = _panel_grid(len(trends), ncols=2)
+    for ax, t in zip(axes, trends):
+        pr = np.array(t.reduced_pressure)
+        ax.plot(pr, t.dT_meas, "o-", ms=7, lw=2, color=C_TRUTH,
+                label=rf"Measured  ($\propto p_r^{{{t.fit_meas.slope:.2f}}}$)")
+        ax.plot(pr, t.dT_cooper, "s--", ms=6, lw=2, mfc="none", mew=1.5, color=C_PRED,
+                label=rf"Cooper  ($\propto p_r^{{{t.fit_cooper.slope:.2f}}}$)")
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        _plain_log_ticks(ax)
+        ax.set_xlabel("Reduced pressure p_r")
+        ax.set_ylabel(f"ΔT_sat at {q_ref / 1e3:.0f} kW/m² [K]")
+        ax.set_title(t.group, color=INK, fontsize=9, loc="left")
+        leg = ax.legend(frameon=False, fontsize=9)
+        for text in leg.get_texts():
+            text.set_color(INK_MUTED)
+        _style(ax)
+    fig.tight_layout()
+    fig.savefig(path, dpi=dpi, facecolor=SURFACE)
+    plt.close(fig)
+
+
+def _f(v, spec):
+    return format(v, spec) if isinstance(v, (int, float)) and np.isfinite(v) else "—"
+
+
+def _experiment_summary(run, cfg, manifest: dict) -> str:
+    rows = [r.to_row() for r in run.results]
+    judged = [r for r in run.results if r.gate and r.gate.enough_cases]
+    counts = run.verdict_counts
+    q_min, q_max_frac = run.window
+    lines = [
+        "# 실측 비등곡선 Cooper 게이트",
+        "",
+        f"- 입력: {', '.join('`' + p + '`' for p in manifest['inputs'])}",
+        f"- 평가 구간: 상승 측정, q ≥ {q_min / 1e3:.0f} kW/m², q ≤ {q_max_frac:.0%} × 곡선 최대 q (판단값, 아래 민감도 표)",
+        f"- Cooper: R_p = {cfg.get('cooper.roughness_um')} µm 고정, 곡선마다 그 압력의 p_r",
+        f"- 기준: 곡선마다 MAPE ≤ {cfg.get('gate.mape_max'):.0%}, log-log 기울기 {cfg.get('gate.slope_target')} ± "
+        f"{cfg.get('gate.slope_tol')}, 구간 안 점 {cfg.get('gate.min_cases')}개 이상. "
+        "실측 곡선은 사이트 수가 물리로 정해지므로 기울기도 판정 기준이다.",
+        "",
+        "## 한눈에",
+        "",
+        f"- 곡선 {len(run.results)}개 — 통과 {counts.get('통과', 0)} · 조건부 통과 {counts.get('조건부', 0)} · "
+        f"불일치 {counts.get('불일치', 0)} · 판정 불가 {counts.get('판정 불가', 0)}",
+        f"- 구간 안 전체 점 평균 오차 {_f(run.pooled_mape, '.1%')}, 평균 부호 오차 {_f(run.pooled_bias, '+.1%')} "
+        "(+면 Cooper 가 과열도를 높게 냄)",
+        f"- {run.q_ref / 1e3:.0f} kW/m² 에서 실측 ΔT / Cooper ΔT: "
+        + ", ".join(f"{r.curve.curve_id} {_f(r.dT_meas_at_ref, '.1f')}/{_f(r.dT_cooper_at_ref, '.1f')} K"
+                    for r in run.results),
+        "",
+        "## 곡선별",
+        "",
+        "| 출처 | 곡선 | 압력 [bar] | p_r | 방향 | 점(구간/전체) | MAPE | 부호 오차 | 기울기 | 판정 | "
+        f"ΔT@{run.q_ref / 1e3:.0f}k 실측 | Cooper | 역산 R_p [µm] |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|---|",
+    ]
+    for d in rows:
+        lines.append(
+            f"| {d['source']} | {d['curve_id']} | {d['p_Pa'] / 1e5:.2f} | {d['reduced_pressure']:.4f} | "
+            f"{_f(d['orientation_deg'], 'g')}° | {d['n_window']}/{d['n_points']} | {_f(d['mape'], '.0%')} | "
+            f"{_f(d['bias'], '+.0%')} | {_f(d['slope'], '.3f')} ± {_f(d['slope_stderr'], '.3f')} | {d['verdict']} | "
+            f"{_f(d['dT_meas_at_ref_K'], '.2f')} | {_f(d['dT_cooper_at_ref_K'], '.2f')} | "
+            f"{_f(d['implied_rp_at_ref_um'], '.3g')} |"
+        )
+    lines += [
+        "",
+        "> 역산 R_p 는 진단용이다. 이 점을 맞추려면 R_p 가 얼마여야 했는지를 보여 줄 뿐이고, "
+        "R_p 는 1 µm 로 고정한다.",
+    ]
+    if run.trends:
+        lines += [
+            "",
+            "## 압력 항 (같은 표면, 압력만 다른 곡선들)",
+            "",
+            f"{run.q_ref / 1e3:.0f} kW/m² 에서 ΔT ∝ p_r^m 로 맞춘 지수. 프리팩터는 ΔT 를 평행이동만 시키므로 "
+            "m 은 상수로 맞출 수 없는 형태 정보다.",
+            "",
+            "| 묶음 | 곡선 수 | 실측 m | Cooper m | 실측 R² |",
+            "|---|---|---|---|---|",
+        ]
+        for t in run.trends:
+            lines.append(
+                f"| {t.group} | {len(t.curve_ids)} | {t.fit_meas.slope:.3f} ± {_f(t.fit_meas.slope_stderr, '.3f')} | "
+                f"{t.fit_cooper.slope:.3f} | {t.fit_meas.r_squared:.3f} |"
+            )
+    if run.sensitivity:
+        lines += [
+            "",
+            "## 평가 구간 민감도",
+            "",
+            "| q 하한 [kW/m²] | 상한 (× 최대 q) | 판정된 곡선 | 통과 | 조건부 | 불일치 | MAPE 중앙값 | 기울기 중앙값 |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for s in run.sensitivity:
+            lines.append(
+                f"| {s['q_min_W_m2'] / 1e3:.0f} | {s['q_max_frac']:.2f} | {s['n_judged']}/{s['n_curves']} | "
+                f"{s['n_pass']} | {s['n_conditional']} | {s['n_mismatch']} | {_f(s['median_mape'], '.0%')} | "
+                f"{_f(s['median_slope'], '.3f')} |"
+            )
+    lines += ["", "## 재현 정보", "", "```json",
+              json.dumps(manifest.get("provenance", {}), indent=2, ensure_ascii=False), "```", ""]
+    return "\n".join(lines)
+
+
+def write_experiment_outputs(out_dir: Path, run, cfg, manifest: dict,
+                             make_plots: bool = True, dpi: int = 160) -> dict:
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    written: dict[str, str] = {}
+
+    curves_path = out_dir / "curves.csv"
+    pd.DataFrame([r.to_row() for r in run.results]).to_csv(curves_path, index=False)
+    written["curves"] = str(curves_path)
+
+    pts = []
+    for r in run.results:
+        c = r.curve
+        for i in range(c.q.size):
+            pts.append({
+                "source": c.source, "curve_id": c.curve_id, "p_Pa": c.p_Pa, "branch": c.branch[i],
+                "q_W_m2": c.q[i], "dT_meas_K": c.dT[i], "dT_cooper_K": r.dT_cooper[i],
+                "rel_error": (r.dT_cooper[i] - c.dT[i]) / c.dT[i], "in_window": bool(r.in_window[i]),
+            })
+    points_path = out_dir / "points.csv"
+    pd.DataFrame(pts).to_csv(points_path, index=False)
+    written["points"] = str(points_path)
+
+    result_path = out_dir / "experiment_result.json"
+    result_path.write_text(json.dumps({
+        "verdict_counts": run.verdict_counts,
+        "pooled_mape": run.pooled_mape,
+        "pooled_bias": run.pooled_bias,
+        "q_ref_W_m2": run.q_ref,
+        "window": {"q_min_W_m2": run.window[0], "q_max_frac": run.window[1]},
+        "curves": [{**r.to_row(), "gate": r.gate.to_dict() if r.gate else None} for r in run.results],
+        "pressure_trends": [t.to_dict() for t in run.trends],
+        "window_sensitivity": run.sensitivity,
+    }, indent=2, ensure_ascii=False, default=float), encoding="utf-8")
+    written["experiment_result"] = str(result_path)
+
+    manifest_path = out_dir / "run_manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
+    written["run_manifest"] = str(manifest_path)
+
+    summary_path = out_dir / "summary.md"
+    summary_path.write_text(_experiment_summary(run, cfg, manifest), encoding="utf-8")
+    written["summary"] = str(summary_path)
+
+    if make_plots:
+        p = out_dir / "boiling_curves.png"
+        plot_experiment_curves(run.results, run.q_ref, p, dpi)
+        written["boiling_curves"] = str(p)
+        p = out_dir / "parity.png"
+        plot_experiment_parity(run.results, float(cfg.get("gate.mape_max", 0.30)), p, dpi)
+        if p.exists():
+            written["parity"] = str(p)
+        p = out_dir / "pressure_trend.png"
+        plot_pressure_trends(run.trends, run.q_ref, p, dpi)
+        if p.exists():
+            written["pressure_trend"] = str(p)
+    return written

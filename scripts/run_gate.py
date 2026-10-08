@@ -7,6 +7,8 @@
     python scripts/run_gate.py --config configs/ground_truth.yaml          # 정답 기포장 표
     python scripts/run_gate.py --config configs/ground_truth.yaml \
         --ground-truth path/to/ground_truth_final.csv                      # 원본 인계 표
+    python scripts/run_gate.py --config configs/experiments.yaml           # 실측 비등곡선
+    python scripts/run_gate.py --config configs/experiments.yaml --experiments a.csv b.csv
 """
 
 from __future__ import annotations
@@ -46,6 +48,12 @@ def main() -> int:
         "--slope-role", default=None, choices=["auto", "criterion", "reference"],
         help="기울기 기준의 역할 (기본 auto: 처방 사이트 수가 다르면 참고로 내림)",
     )
+    ap.add_argument(
+        "--experiments", nargs="+", default=None,
+        help="실측 비등곡선 CSV (여러 개 가능). 주면 실측 게이트를 돈다",
+    )
+    ap.add_argument("--q-min", type=float, default=None, help="실측 평가 구간 하한 [W/m²]")
+    ap.add_argument("--q-max-frac", type=float, default=None, help="실측 평가 구간 상한 (곡선 최대 q 대비)")
     ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args()
 
@@ -73,10 +81,18 @@ def main() -> int:
         overrides.setdefault("ground_truth", {})["q_definition"] = args.q_definition
     if args.slope_role:
         overrides.setdefault("gate", {})["slope_role"] = args.slope_role
+    if args.experiments:
+        overrides.setdefault("experiments", {})["csv"] = args.experiments
+    if args.q_min is not None:
+        overrides.setdefault("experiments", {})["q_min_W_m2"] = args.q_min
+    if args.q_max_frac is not None:
+        overrides.setdefault("experiments", {})["q_max_frac"] = args.q_max_frac
 
     cfg_path = Path(args.config)
     cfg = load_config(cfg_path if cfg_path.exists() else None, overrides)
     result = run_pipeline(cfg)
+    if "experiments" in result:
+        return _print_experiments(result)
     gate = result["gate"]
 
     print()
@@ -93,6 +109,28 @@ def main() -> int:
     for reason in gate.reasons:
         print(f"  · {reason}")
     print()
+    return 0
+
+
+def _print_experiments(result) -> int:
+    run = result["experiments"]
+    c = run.verdict_counts
+    print()
+    print("=" * 72)
+    print(f"  실측 곡선 {len(run.results)}개 — 통과 {c.get('통과', 0)} · 조건부 {c.get('조건부', 0)} · "
+          f"불일치 {c.get('불일치', 0)} · 판정 불가 {c.get('판정 불가', 0)}")
+    print(f"  구간 안 전체 점 MAPE {run.pooled_mape:.1%}, 평균 부호 오차 {run.pooled_bias:+.1%} "
+          "(+면 Cooper 과열도가 높음)")
+    for r in run.results:
+        g = r.gate
+        slope = f"{g.fit.slope:.3f}" if g else "—"
+        mape = f"{g.mape:.0%}" if g else "—"
+        print(f"  · {r.curve.curve_id:<22} {r.curve.p_Pa / 1e5:5.2f} bar  기울기 {slope:>6}  MAPE {mape:>5}  "
+              f"{r.verdict}")
+    for t in run.trends:
+        print(f"  압력 항 [{t.group}]: 실측 ΔT ∝ p_r^{t.fit_meas.slope:.2f}, Cooper p_r^{t.fit_cooper.slope:.2f}")
+    print(f"  산출물 : {result['out_dir']}")
+    print("=" * 72)
     return 0
 
 

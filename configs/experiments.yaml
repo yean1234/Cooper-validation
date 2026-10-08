@@ -1,0 +1,32 @@
+# 실측 비등곡선으로 Cooper 검증 — BubbleML 대신.
+#
+# BubbleML 은 핵생성 자리 수를 사람이 정해서 "실제 표면에서 q'' → ΔT" 를 채점할 수 없다.
+# 여기서는 실제 표면에서 잰 곡선을 곡선마다 따로 채점한다 (표면이 다르면 과열도가 몇 배씩 달라서).
+# 자료 목록과 선정 이유: docs/FC72_POOL_BOILING_DATA.md
+
+run:
+  out_dir: outputs
+  label: "실측 FC-72 비등곡선 → Cooper"
+
+experiments:
+  csv:
+    - data/experiments/zimmermann2020_fc72_smooth.csv
+  q_min_W_m2: 2.0e4        # 끓기 시작 직후 부분 핵비등 제외 (판단값 — 결과의 민감도 표 참고)
+  q_max_frac: 0.8          # 곡선 최대 q 의 80% 까지 (임계열유속 직전 제외, 판단값)
+  q_ref_W_m2: 7.2e4        # 탱크 CPU 작동점
+
+cooper:
+  fluid: FC-72
+  roughness_um: 1.0        # 고정. 튜닝 금지
+  allow_tuning: false
+  fluid_overrides: configs/fluids.yaml
+
+gate:
+  mape_max: 0.30
+  slope_target: 0.33
+  slope_tol: 0.05
+  min_cases: 5             # 여기서는 '곡선 하나의 평가 구간 안 점 수'
+  slope_role: auto         # 실측에는 사이트 수 열이 없으니 기울기가 판정 기준이 된다
+
+report:
+  make_plots: true
